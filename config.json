@@ -1,0 +1,10 @@
+{
+  "query_field": "Front",
+  "furigana_field": "Back",
+  "definition_field": "Somewhere",
+  "image_field": "Back",
+  "kanji_field": "cat_go_meow",
+  "kana_field": "not_set",
+  "type_field": "WordType",
+  "number_of_defs": 5
+}
