@@ -40,7 +40,7 @@ def search_def(root, keb_text, def_limit = 0):
                     glosses = [gloss.text for gloss in sense.iter('gloss')]
                     gloss_text = '; '.join(glosses)
                     return_val += (f"{i}: {gloss_text}<br>")
-                    def_limit =- 1
+                    def_limit = def_limit - 1
                     if def_limit == 0:
                         return return_val.strip("<br>")
                 return return_val.strip("<br>")
@@ -87,6 +87,7 @@ def search_furigana(data, target_text):
                     result += f['ruby']
                     last_no_kanji = True
             return result
+    return ""
 
 
 def parts_of_speech_conversion(input: str)-> str:
@@ -99,7 +100,7 @@ def parts_of_speech_conversion(input: str)-> str:
         outputStr += "一段、"
     if "suru" in input.lower():
         outputStr += "する、"
-    if "transitive verb" in input.lower():
+    if input.startswith("transitive verb") or " transitive verb" in input.lower():
         outputStr += "他動詞、"
     if "intransitive verb" in input.lower():
         outputStr += "自動詞、"
@@ -109,6 +110,7 @@ def parts_of_speech_conversion(input: str)-> str:
         outputStr += "なー形容詞、"
     return outputStr.strip("、")
 
+last_checked = ""
 def onFocusLost(changed: bool, note: Note, current_field_index: int) -> bool:
     # if note.note_type()["name"] == "Japanese2":
     #     return changed
@@ -129,6 +131,8 @@ def onFocusLost(changed: bool, note: Note, current_field_index: int) -> bool:
 
 
 def insert_if_empty(fields: list, note: Note, dest_config: str, new_text: str):
+    if new_text == "":
+        return False
     dest_field = config[dest_config]
     if dest_field in fields:
         if note[dest_field] == "":
