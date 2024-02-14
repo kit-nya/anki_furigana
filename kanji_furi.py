@@ -42,9 +42,9 @@ def search_def(root, keb_text, def_limit = 0):
                     return_val += (f"{i}: {gloss_text}<br>")
                     def_limit = def_limit - 1
                     if def_limit == 0:
-                        return return_val.strip("<br>")
-                return return_val.strip("<br>")
-    return return_val.strip("<br>")
+                        break
+                return return_val[:-4] if return_val.endswith("<br>") else return_val
+    return return_val[:-4] if return_val.endswith("<br>") else return_val
 
 def search_reb(root, keb_text):
     # Assuming root is an ElementTree instance, and element names are as per your code base
@@ -110,7 +110,7 @@ def parts_of_speech_conversion(input: str)-> str:
         outputStr += "なー形容詞、"
     return outputStr.strip("、")
 
-last_checked = ""
+previous_srcTxt = None
 def onFocusLost(changed: bool, note: Note, current_field_index: int) -> bool:
     # if note.note_type()["name"] == "Japanese2":
     #     return changed
@@ -118,7 +118,7 @@ def onFocusLost(changed: bool, note: Note, current_field_index: int) -> bool:
     modified_field = fields[current_field_index]
     if modified_field == config[SETTING_SRC_FIELD]:
         srcTxt = mw.col.media.strip(note[modified_field])
-        if srcTxt != "":
+        if srcTxt != "" and (previous_srcTxt is None or srcTxt != previous_srcTxt):
             if insert_if_empty(fields, note, SETTING_FURI_DEST_FIELD, search_furigana(jmdict_furi_data, srcTxt)):
                 changed = True
             if insert_if_empty(fields, note, SETTING_MEANING_FIELD, search_def(jmdict_data, srcTxt, config[SETTING_NUM_DEFS])):
