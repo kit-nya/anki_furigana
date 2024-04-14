@@ -31,15 +31,12 @@ After installation, please update the following settings found here:
 The following settings are provided
 ![SettingsOptions](https://raw.githubusercontent.com/kit-nya/anki_furigana/master/docs/settings_example.png)
 
-| Setting         | Description                                               | 
-| --------------- | --------------------------------------------------------- |
-| Input field     | This is the field in which Kanji is entered              |
-| Furigana field  | This is where rubytext will be generated for the Kanji input |
-| Kana field      | This is the hiragana reading from the input field          |
-| Definition field| This gives you the top X definitions as defined in "Number of Defs" |
-| Type field      | Gives you the type of word, keiyoushi, meishi etc          |
-| Number of Defs  | Limits the number of definitions in the Definition field   |
-
+- Input field: This is the field in which Kanji is entered
+- Furigana field: This is where rubytext will be generated for the Kanji input
+- Kana field: This is the hiragana reading from the input field
+- Definition field: This gives you the top X definitions as defined in "Number of Defs"
+- Type field: Gives you the type of word, keiyoushi, meishi etc
+- Number of Defs: Limits the number of definitions in the Definition field
 
 ## Contribution 
 
