@@ -19,16 +19,21 @@ More information about JMdict can be found here: [JMdict](https://www.edrdg.org/
 Here's an example of what this addon does for a note, please note that there are no note types provided with the addon so you'll need to make your own.
 
 From this
+
 ![Input](https://raw.githubusercontent.com/kit-nya/anki_furigana/master/docs/enter_text.png)
+
 To this
+
 ![Output](https://raw.githubusercontent.com/kit-nya/anki_furigana/master/docs/tab_result.png)
 
 ## Usage
 
 After installation, please update the following settings found here:
+
 ![Settings](https://raw.githubusercontent.com/kit-nya/anki_furigana/master/docs/settings_location.png)
 
 The following settings are provided
+
 ![SettingsOptions](https://raw.githubusercontent.com/kit-nya/anki_furigana/master/docs/settings_example.png)
 
 - Input field: This is the field in which Kanji is entered
