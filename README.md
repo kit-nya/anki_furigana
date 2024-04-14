@@ -43,6 +43,18 @@ The following settings are provided
 - Type field: Gives you the type of word, keiyoushi, meishi etc
 - Number of Defs: Limits the number of definitions in the Definition field
 
+To use simply type in the word like so
+
+![Input](https://raw.githubusercontent.com/kit-nya/anki_furigana/master/docs/enter_text.png)
+
+Hit tab or move off the field and the rest of the fields will be populated.
+
+![Output](https://raw.githubusercontent.com/kit-nya/anki_furigana/master/docs/tab_result.png)
+
+To remove the outputs, for example if the card is a duplicate then use the following to clear all fields.
+
+![Clear Fields Button](https://raw.githubusercontent.com/kit-nya/anki_furigana/master/docs/clear_fields.png)
+
 ## Contribution 
 
 Your contributions are welcome! If you have any ideas or suggestions, please feel free to [Submit an issue](https://github.com/kit-nya/anki_furigana/issues/new).
