@@ -1,15 +1,13 @@
 from __future__ import annotations
 
+import json
 import os
+import xml.etree.ElementTree as Et
 
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QVBoxLayout, QSpinBox
 from anki.notes import Note
-from aqt import gui_hooks, mw, qconnect
-
-import xml.etree.ElementTree as ET
-
-import json
+from aqt import gui_hooks, qconnect, mw
 
 SETTING_SRC_FIELD = "kanji_field"
 SETTING_FURI_DEST_FIELD = "furigana_field"
@@ -18,19 +16,26 @@ SETTING_TYPE_DEST_FIELD = "type_field"
 SETTING_MEANING_FIELD = "definition_field"
 SETTING_NUM_DEFS = "number_of_defs"
 
+# This is used to prevent excessive lookups
+previous_srcTxt = None
+
+dicts_path = os.path.join(os.path.dirname(__file__), "dicts/")
+
+
 def load_xml_file(filepath):
     try:
-        tree = ET.parse(filepath)
+        tree = Et.parse(filepath)
         root = tree.getroot()
         return root
     except FileNotFoundError:
         print(f"File {filepath} not found.")
         return None
-    except ET.ParseError:
+    except Et.ParseError:
         print(f"Error parsing the file {filepath}.")
         return None
 
-def search_def(root, keb_text, def_limit = 0):
+
+def search_def(root, keb_text, def_limit=0):
     return_val = ""
     for entry in root.iter('entry'):
         for keb in entry.iter('keb'):  # iterate over all 'keb' children of 'entry'
@@ -39,12 +44,13 @@ def search_def(root, keb_text, def_limit = 0):
                 for i, sense in enumerate(entry.iter('sense'), start=1):
                     glosses = [gloss.text for gloss in sense.iter('gloss')]
                     gloss_text = '; '.join(glosses)
-                    return_val += (f"{i}: {gloss_text}<br>")
+                    return_val += f"{i}: {gloss_text}<br>"
                     def_limit = def_limit - 1
                     if def_limit == 0:
                         break
                 return return_val[:-4] if return_val.endswith("<br>") else return_val
     return return_val[:-4] if return_val.endswith("<br>") else return_val
+
 
 def search_reb(root, keb_text):
     # Assuming root is an ElementTree instance, and element names are as per your code base
@@ -53,6 +59,7 @@ def search_reb(root, keb_text):
         if keb is not None and keb.text == keb_text:
             return entry.findall('r_ele/reb')[0].text.strip()
     return ""
+
 
 def search_pos(root, keb_text):
     pos_values = set()
@@ -71,62 +78,72 @@ def search_pos(root, keb_text):
                     pos_values.add(pos_text)
     return '; '.join(pos_values)
 
+
 def search_furigana(data, target_text):
     for obj in data:
         if obj['text'] == target_text:
             furigana = obj['furigana']
             result = ""
             last_no_kanji = False
-            for f in furigana:
-                if "rt" in f:
+            for fu in furigana:
+                if "rt" in fu:
                     if last_no_kanji:
                         result += " "
-                    result += f['ruby']
-                    result += "[" + f['rt'] + "]"
+                    result += fu['ruby']
+                    result += "[" + fu['rt'] + "]"
                 else:
-                    result += f['ruby']
+                    result += fu['ruby']
                     last_no_kanji = True
             return result
     return ""
 
 
-def parts_of_speech_conversion(input: str)-> str:
-    outputStr = ""
-    if "noun" in input.lower():
-        outputStr += "名詞、"
-    if "godan" in input.lower():
-        outputStr += "五段、"
-    if "ichidan" in input.lower():
-        outputStr += "一段、"
-    if "suru" in input.lower():
-        outputStr += "する、"
-    if input.startswith("transitive verb") or " transitive verb" in input.lower():
-        outputStr += "他動詞、"
-    if "intransitive verb" in input.lower():
-        outputStr += "自動詞、"
-    if "adjective (keiyoushi)" in input.lower():
-        outputStr += "いー形容詞、"
-    if "adjectival nouns" in input.lower():
-        outputStr += "なー形容詞、"
-    return outputStr.strip("、")
+def parts_of_speech_conversion(input_str: str) -> str:
+    output_str = ""
+    if "noun" in input_str.lower():
+        output_str += "名詞、"
+    if "godan" in input_str.lower():
+        output_str += "五段、"
+    if "ichidan" in input_str.lower():
+        output_str += "一段、"
+    if "suru" in input_str.lower():
+        output_str += "する、"
+    if input_str.startswith("transitive verb") or " transitive verb" in input_str.lower():
+        output_str += "他動詞、"
+    if "intransitive verb" in input_str.lower():
+        output_str += "自動詞、"
+    if "adjective (keiyoushi)" in input_str.lower():
+        output_str += "いー形容詞、"
+    if "adjectival nouns" in input_str.lower():
+        output_str += "なー形容詞、"
+    return output_str.strip("、")
 
-previous_srcTxt = None
-def onFocusLost(changed: bool, note: Note, current_field_index: int) -> bool:
-    # if note.note_type()["name"] == "Japanese2":
-    #     return changed
+
+def on_focus_lost(changed: bool, note: Note, current_field_index: int) -> bool:
+    # Get the field names
     fields = mw.col.models.field_names(note.note_type())
+    # Get the modified field
     modified_field = fields[current_field_index]
+    # Check if it's the same as config, if so proceed
     if modified_field == config[SETTING_SRC_FIELD]:
-        srcTxt = mw.col.media.strip(note[modified_field])
-        if srcTxt != "" and (previous_srcTxt is None or srcTxt != previous_srcTxt):
-            if insert_if_empty(fields, note, SETTING_FURI_DEST_FIELD, search_furigana(jmdict_furi_data, srcTxt)):
-                changed = True
-            if insert_if_empty(fields, note, SETTING_MEANING_FIELD, search_def(jmdict_data, srcTxt, config[SETTING_NUM_DEFS])):
-                changed = True
-            if insert_if_empty(fields, note, SETTING_KANA_DEST_FIELD, search_reb(jmdict_data, srcTxt)):
-                changed = True
-            if insert_if_empty(fields, note, SETTING_TYPE_DEST_FIELD, parts_of_speech_conversion(search_pos(jmdict_data, srcTxt))):
-                changed = True
+        # Strip for good measure
+        src_txt = mw.col.media.strip(note[modified_field])
+        if src_txt != "" and (previous_srcTxt is None or src_txt != previous_srcTxt):
+            # Added the field checks for people who don't have all fields for whatever reason
+            if config.get(SETTING_FURI_DEST_FIELD) in fields:
+                if insert_if_empty(fields, note, SETTING_FURI_DEST_FIELD, search_furigana(jmdict_furi_data, src_txt)):
+                    changed = True
+            if config.get(SETTING_MEANING_FIELD) in fields:
+                if insert_if_empty(fields, note, SETTING_MEANING_FIELD,
+                                   search_def(jmdict_data, src_txt, config[SETTING_NUM_DEFS])):
+                    changed = True
+            if config.get(SETTING_KANA_DEST_FIELD) in fields:
+                if insert_if_empty(fields, note, SETTING_KANA_DEST_FIELD, search_reb(jmdict_data, src_txt)):
+                    changed = True
+            if config.get(SETTING_TYPE_DEST_FIELD) in fields:
+                if insert_if_empty(fields, note, SETTING_TYPE_DEST_FIELD,
+                                   parts_of_speech_conversion(search_pos(jmdict_data, src_txt))):
+                    changed = True
     return changed
 
 
@@ -139,10 +156,11 @@ def insert_if_empty(fields: list, note: Note, dest_config: str, new_text: str):
             note[dest_field] = new_text
         return True
 
+
 def settings_dialog():
     dialog = QDialog(mw)
     dialog.setWindowTitle("Furigana Addon")
-    
+
     # Input Field
     box_query = QHBoxLayout()
     label_query = QLabel("Input field:")
@@ -189,7 +207,6 @@ def settings_dialog():
 
     ok = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
     cancel = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
-    # config = mw.addonManager.getConfig(__name__)
 
     def init_configui():
         text_query.setText(config.get(SETTING_SRC_FIELD, "not_set"))
@@ -238,22 +255,49 @@ def init_menu():
     mw.form.menuTools.addAction(action)
 
 
+def get_field_names_array():
+    array = [config.get(SETTING_SRC_FIELD), config.get(SETTING_FURI_DEST_FIELD), config.get(SETTING_KANA_DEST_FIELD),
+             config.get(SETTING_TYPE_DEST_FIELD), config.get(SETTING_MEANING_FIELD)]
+    return array
 
-gui_hooks.editor_did_unfocus_field.append(onFocusLost)
 
-file_path = os.path.join(os.path.dirname(__file__), "dicts/")
+def clear_fields(editor):
+    fields = mw.col.models.field_names(editor.note.note_type())
+    dest_fields = get_field_names_array()
+    for field in fields:
+        if field in dest_fields:
+            editor.note[field] = ""
+    editor.loadNote()
 
-with open(os.path.join(file_path +'JmdictFurigana.json'), 'r', encoding='utf-8-sig') as f:
+
+def editor_button_setup(buttons, editor):
+    icons_path = os.path.join(os.path.dirname(__file__), "icons/")
+    clear_icon = "icons8-clear-50.png"
+    clear_icon_path = os.path.join(icons_path, clear_icon)
+    btn = editor.addButton(clear_icon_path,
+                           'clear_fields',
+                           clear_fields,
+                           tip='Clear fields')
+    buttons.append(btn)
+
+
+# GUI Hooks
+gui_hooks.editor_did_unfocus_field.append(on_focus_lost)
+gui_hooks.editor_did_init_buttons.append(editor_button_setup)
+
+# Dictionary Furigana Dictionary
+with open(os.path.join(dicts_path + 'JmdictFurigana.json'), 'r', encoding='utf-8-sig') as f:
     jmdict_furi_data = json.load(f)
 
-
-# Usage
-jmdict_data = load_xml_file(os.path.join(file_path + 'JMdict_e.xml'))
+# JMDict Data Load
+jmdict_data = load_xml_file(os.path.join(dicts_path + 'JMdict_e.xml'))
 if jmdict_data is not None:
     print(f"Successfully loaded XML file. Root tag is '{jmdict_data.tag}'.")
 else:
     print("Failed to load XML file.")
-from aqt import mw
+
+# Create config variable
 config = mw.addonManager.getConfig(__name__)
+
+# Add the options to the menu
 init_menu()
-print(search_pos(jmdict_data,"料理"))

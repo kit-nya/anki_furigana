@@ -1,1 +1,10 @@
-{"config": {"query_field": "Front", "furigana_field": "Kanji_with_reading", "definition_field": "Meaning", "image_field": "Back", "kanji_field": "Kanji", "kana_field": "Reading", "type_field": "WordType", "number_of_defs": 3}}
+{
+  "config": {
+    "furigana_field": "FuriganaField",
+    "definition_field": "Meaning",
+    "kanji_field": "Front",
+    "kana_field": "Reading",
+    "type_field": "WordType",
+    "number_of_defs": 3
+  }
+}
