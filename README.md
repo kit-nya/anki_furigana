@@ -15,6 +15,8 @@ With this add-on, you can:
 I have used JMdict for fetching kanji readings and definitions.
 More information about JMdict can be found here: [JMdict](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project)
 
+Kanjidic used for RTK addition: [KANJIDIC](!http://www.edrdg.org/wiki/index.php/KANJIDIC_Project)
+
 ## Screenshots
 Here's an example of what this addon does for a note, please note that there are no note types provided with the addon so you'll need to make your own.
 
