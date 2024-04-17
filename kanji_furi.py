@@ -15,9 +15,12 @@ SETTING_KANA_DEST_FIELD = "kana_field"
 SETTING_TYPE_DEST_FIELD = "type_field"
 SETTING_MEANING_FIELD = "definition_field"
 SETTING_NUM_DEFS = "number_of_defs"
+SETTING_RTK_SRC_FIELD = "rtk_src"
+SETTING_RTK_DEST_FIELD = "rtk_dest"
 
 # This is used to prevent excessive lookups
 previous_srcTxt = None
+previous_srcTxt_rtk = None
 
 dicts_path = os.path.join(os.path.dirname(__file__), "dicts/")
 
@@ -144,6 +147,13 @@ def on_focus_lost(changed: bool, note: Note, current_field_index: int) -> bool:
                 if insert_if_empty(fields, note, SETTING_TYPE_DEST_FIELD,
                                    parts_of_speech_conversion(search_pos(jmdict_data, src_txt))):
                     changed = True
+    if modified_field == config[SETTING_RTK_SRC_FIELD]:
+        # Strip for good measure
+        src_txt = mw.col.media.strip(note[modified_field])
+        if src_txt != "" and (previous_srcTxt_rtk is None or src_txt != previous_srcTxt_rtk):
+            if config.get(SETTING_RTK_DEST_FIELD) in fields:
+                if insert_if_empty(fields, note, SETTING_RTK_DEST_FIELD, find_kanji_by_heisig6(kanji_dic_data, src_txt)):
+                    changed = True
     return changed
 
 
@@ -205,6 +215,20 @@ def settings_dialog():
     box_def_nums.addWidget(label_def_nums)
     box_def_nums.addWidget(text_def_nums)
 
+    box_rtk_src = QHBoxLayout()
+    label_rtk_src = QLabel("Rtk Source:")
+    text_rtk_src = QLineEdit("")
+    text_rtk_src.setMinimumWidth(200)
+    box_rtk_src.addWidget(label_rtk_src)
+    box_rtk_src.addWidget(text_rtk_src)
+
+    box_rtk_dest = QHBoxLayout()
+    label_rtk_dest = QLabel("Rtk Destination:")
+    text_rtk_dest = QLineEdit("")
+    text_rtk_dest.setMinimumWidth(200)
+    box_rtk_dest.addWidget(label_rtk_dest)
+    box_rtk_dest.addWidget(text_rtk_dest)
+
     ok = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
     cancel = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
 
@@ -215,6 +239,8 @@ def settings_dialog():
         text_kana.setText(config.get(SETTING_KANA_DEST_FIELD, "not_set"))
         text_type.setText(config.get(SETTING_TYPE_DEST_FIELD, "WordType"))
         text_def_nums.setValue(config.get(SETTING_NUM_DEFS, 5))
+        text_rtk_src.setText(config.get(SETTING_RTK_SRC_FIELD, "not_set"))
+        text_rtk_dest.setText(config.get(SETTING_RTK_DEST_FIELD, "not_set"))
 
     def save_config():
         config[SETTING_SRC_FIELD] = text_query.text()
@@ -223,6 +249,8 @@ def settings_dialog():
         config[SETTING_KANA_DEST_FIELD] = text_kana.text()
         config[SETTING_TYPE_DEST_FIELD] = text_type.text()
         config[SETTING_NUM_DEFS] = text_def_nums.value()
+        config[SETTING_RTK_SRC_FIELD] = text_rtk_src.text()
+        config[SETTING_RTK_DEST_FIELD] = text_rtk_dest.text()
         mw.addonManager.writeConfig(__name__, config)
         dialog.close()
 
@@ -236,6 +264,8 @@ def settings_dialog():
         layout.addLayout(box_def)
         layout.addLayout(box_type)
         layout.addLayout(box_def_nums)
+        layout.addLayout(box_rtk_src)
+        layout.addLayout(box_rtk_dest)
 
         layout.addWidget(ok)
         layout.addWidget(cancel)
@@ -281,6 +311,21 @@ def editor_button_setup(buttons, editor):
     buttons.append(btn)
 
 
+# Begin Kanji Additions
+
+def find_kanji_by_heisig6(root, heisig6_num):
+    if root is not None:
+        for character in root.iter('character'):
+            for dic_number in character.iter('dic_number'):
+                for dic_ref in dic_number.iter('dic_ref'):
+                    if dic_ref.get('dr_type') == 'heisig6' and dic_ref.text == str(heisig6_num):
+                        literal = character.find('literal')
+                        return literal.text
+        return f"No kanji found with Heisig6 number {heisig6_num}"
+    else:
+        return "The XML data root is None."
+
+
 # GUI Hooks
 gui_hooks.editor_did_unfocus_field.append(on_focus_lost)
 gui_hooks.editor_did_init_buttons.append(editor_button_setup)
@@ -293,6 +338,12 @@ with open(os.path.join(dicts_path + 'JmdictFurigana.json'), 'r', encoding='utf-8
 jmdict_data = load_xml_file(os.path.join(dicts_path + 'JMdict_e.xml'))
 if jmdict_data is not None:
     print(f"Successfully loaded XML file. Root tag is '{jmdict_data.tag}'.")
+else:
+    print("Failed to load XML file.")
+
+kanji_dic_data = load_xml_file(os.path.join(dicts_path + 'kanjidic2.xml'))
+if kanji_dic_data is not None:
+    print(f"Successfully loaded XML file. Root tag is '{kanji_dic_data.tag}'.")
 else:
     print("Failed to load XML file.")
 
