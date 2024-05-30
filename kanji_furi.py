@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import xml.etree.ElementTree as Et
+import pickle
 
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QVBoxLayout, QSpinBox
@@ -34,6 +35,43 @@ def load_xml_file(filepath):
         print(f"Error parsing the file {filepath}.")
         return None
 
+
+def build_dict_from_xml(root):
+    output = {}
+    for entry in root.iter('entry'):
+        parts_of_speech_values = set()
+        keb_entries = set()
+        for keb_entry in entry.findall('k_ele/keb'):
+            keb_entries.add(keb_entry.text)
+        pos_elements = entry.findall('sense/pos')
+        for pos in pos_elements:
+            # Check if <!ENTITY> in tag text and replace with full string
+            pos_text = pos.text
+            if pos_text and "&" in pos_text and ';' in pos_text:
+                entity_value = pos_text.replace('&', '').replace(';', '')
+                full_string = root.docinfo.internalDTD.entities.get(entity_value)
+                parts_of_speech_values.add(full_string if full_string else pos_text)
+            else:
+                parts_of_speech_values.add(pos_text)
+        senses = {}
+        for i, sense in enumerate(entry.iter('sense'), start=1):
+            glosses = [gloss.text for gloss in sense.iter('gloss')]
+            gloss_text = '; '.join(glosses)
+            senses[i] = f"{i}: {gloss_text}"
+        reb = entry.findall('r_ele/reb')[0].text.strip()
+        for ke in keb_entries:
+            if ke not in output:
+                output[ke] = {"parts_of_speech_values": parts_of_speech_values,
+                              "senses": senses, "reb": reb}
+    return output
+
+def get_senses(dict_item, limit=5):
+    numbers = list(range(1, limit+1))
+    arry = []
+    for number in numbers:
+        if number in dict_item["senses"]:
+            arry.append(dict_item["senses"][number])
+    return "<br>".join(arry)
 
 def search_def(root, keb_text, def_limit=0):
     return_val = ""
@@ -133,17 +171,20 @@ def on_focus_lost(changed: bool, note: Note, current_field_index: int) -> bool:
             if config.get(SETTING_FURI_DEST_FIELD) in fields:
                 if insert_if_empty(fields, note, SETTING_FURI_DEST_FIELD, search_furigana(jmdict_furi_data, src_txt)):
                     changed = True
-            if config.get(SETTING_MEANING_FIELD) in fields:
-                if insert_if_empty(fields, note, SETTING_MEANING_FIELD,
-                                   search_def(jmdict_data, src_txt, config[SETTING_NUM_DEFS])):
-                    changed = True
-            if config.get(SETTING_KANA_DEST_FIELD) in fields:
-                if insert_if_empty(fields, note, SETTING_KANA_DEST_FIELD, search_reb(jmdict_data, src_txt)):
-                    changed = True
-            if config.get(SETTING_TYPE_DEST_FIELD) in fields:
-                if insert_if_empty(fields, note, SETTING_TYPE_DEST_FIELD,
-                                   parts_of_speech_conversion(search_pos(jmdict_data, src_txt))):
-                    changed = True
+            jmdict_info = dict_data.get(src_txt, None)
+            if jmdict_info is not None:
+                if config.get(SETTING_MEANING_FIELD) in fields:
+                    def_num = config[SETTING_NUM_DEFS]
+                    if insert_if_empty(fields, note, SETTING_MEANING_FIELD,
+                                       get_senses(jmdict_info, def_num)):
+                        changed = True
+                if config.get(SETTING_KANA_DEST_FIELD) in fields:
+                    if insert_if_empty(fields, note, SETTING_KANA_DEST_FIELD, jmdict_info.get("reb", "")):
+                        changed = True
+                if config.get(SETTING_TYPE_DEST_FIELD) in fields:
+                    if insert_if_empty(fields, note, SETTING_TYPE_DEST_FIELD,
+                                       parts_of_speech_conversion(jmdict_info.get("parts_of_speech_values"))):
+                        changed = True
     return changed
 
 
@@ -290,11 +331,24 @@ with open(os.path.join(dicts_path + 'JmdictFurigana.json'), 'r', encoding='utf-8
     jmdict_furi_data = json.load(f)
 
 # JMDict Data Load
-jmdict_data = load_xml_file(os.path.join(dicts_path + 'JMdict_e.xml'))
-if jmdict_data is not None:
-    print(f"Successfully loaded XML file. Root tag is '{jmdict_data.tag}'.")
+data_file = os.path.join(dicts_path + 'dill.pkl') # DIctionary LLoad?
+# Check to see if we already have a file
+if os.path.isfile(data_file):
+    # Open the pickle file and load the data
+    with open(data_file, 'rb') as file:
+        dict_data = pickle.load(file)
 else:
-    print("Failed to load XML file.")
+    # No pickle file found, so we build the array and save for next time. This takes a few seconds.
+    jmdict_data = load_xml_file(os.path.join(dicts_path + 'JMdict_e.xml'))
+    if jmdict_data is not None:
+        print(f"Successfully loaded XML file. Root tag is '{jmdict_data.tag}'.")
+    else:
+        print("Failed to load XML file.")
+    dict_data = build_dict_from_xml(jmdict_data)
+    jmdict_data = None
+    with open(data_file, "wb") as file:
+        pickle.dump(dict_data, file)
+
 
 # Create config variable
 config = mw.addonManager.getConfig(__name__)
