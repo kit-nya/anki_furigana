@@ -53,6 +53,7 @@ def build_dict_from_xml(root):
                 parts_of_speech_values.add(full_string if full_string else pos_text)
             else:
                 parts_of_speech_values.add(pos_text)
+
         senses = {}
         for i, sense in enumerate(entry.iter('sense'), start=1):
             glosses = [gloss.text for gloss in sense.iter('gloss')]
@@ -61,7 +62,7 @@ def build_dict_from_xml(root):
         reb = entry.findall('r_ele/reb')[0].text.strip()
         for ke in keb_entries:
             if ke not in output:
-                output[ke] = {"parts_of_speech_values": parts_of_speech_values,
+                output[ke] = {"parts_of_speech_values": '; '.join(parts_of_speech_values),
                               "senses": senses, "reb": reb}
     return output
 
@@ -183,7 +184,7 @@ def on_focus_lost(changed: bool, note: Note, current_field_index: int) -> bool:
                         changed = True
                 if config.get(SETTING_TYPE_DEST_FIELD) in fields:
                     if insert_if_empty(fields, note, SETTING_TYPE_DEST_FIELD,
-                                       parts_of_speech_conversion(jmdict_info.get("parts_of_speech_values"))):
+                                       parts_of_speech_conversion(jmdict_info.get("parts_of_speech_values", ""))):
                         changed = True
     return changed
 
