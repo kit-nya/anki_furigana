@@ -1,1 +1,1 @@
-from . import kanji_furi, sentence_examples
+from . import kanji_furi, sentence_examples, japanese_dictionary

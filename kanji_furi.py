@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QDialogButt
 from anki.notes import Note
 from aqt import gui_hooks, qconnect, mw
 
-from . import sentence_examples
+from . import japanese_dictionary, sentence_examples
 
 SETTING_SRC_FIELD = "kanji_field"
 SETTING_FURI_DEST_FIELD = "furigana_field"
@@ -21,6 +21,7 @@ SETTING_NUM_DEFS = "number_of_defs"
 SETTING_NUM_SENTENCES = "number_of_sentences"
 SETTING_SENTENCE_DEST_FIELD = "sentence_field"
 SETTING_USE_ORDERED_LIST = "use_ordered_list"
+SETTING_JAPAN_DEST_FIELD = "Definition"
 
 # This is used to prevent excessive lookups
 previous_srcTxt = None
@@ -202,6 +203,11 @@ def on_focus_lost(changed: bool, note: Note, current_field_index: int) -> bool:
                 sentence_num = config[SETTING_NUM_SENTENCES]
                 if insert_if_empty(fields, note, SETTING_SENTENCE_DEST_FIELD, jsl.find_example_sentences_by_word_formatted(src_txt, sentence_num)):
                     changed = True
+            if config.get(SETTING_JAPAN_DEST_FIELD) in fields:
+                jpdef = dictionary.lookup_word(src_txt)
+                if jpdef is not None:
+                    if insert_if_empty(fields, note, SETTING_JAPAN_DEST_FIELD, jpdef):
+                        changed = True
     return changed
 
 
@@ -284,6 +290,13 @@ def settings_dialog():
     box_sentc_nums.addWidget(label_sentc_nums)
     box_sentc_nums.addWidget(text_sentc_nums)
 
+    box_jp_def = QHBoxLayout()
+    label_jp_def = QLabel("JP Def field:")
+    text_jp_def = QLineEdit("")
+    text_jp_def.setMinimumWidth(200)
+    box_jp_def.addWidget(label_jp_def)
+    box_jp_def.addWidget(text_jp_def)
+
     ok = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
     cancel = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
 
@@ -294,6 +307,7 @@ def settings_dialog():
         text_def.setText(config.get(SETTING_MEANING_FIELD, "not_set"))
         text_kana.setText(config.get(SETTING_KANA_DEST_FIELD, "not_set"))
         text_type.setText(config.get(SETTING_TYPE_DEST_FIELD, "WordType"))
+        text_jp_def.setText(config.get(SETTING_JAPAN_DEST_FIELD, "jp_def"))
         text_def_nums.setValue(config.get(SETTING_NUM_DEFS, 5))
         text_sentence.setText(config.get(SETTING_SENTENCE_DEST_FIELD, "Examples"))
         text_sentc_nums.setValue(config.get(SETTING_NUM_SENTENCES, 5))
@@ -306,6 +320,7 @@ def settings_dialog():
         config[SETTING_MEANING_FIELD] = text_def.text()
         config[SETTING_KANA_DEST_FIELD] = text_kana.text()
         config[SETTING_TYPE_DEST_FIELD] = text_type.text()
+        config[SETTING_JAPAN_DEST_FIELD] = text_jp_def.text()
         config[SETTING_NUM_DEFS] = text_def_nums.value()
         config[SETTING_SENTENCE_DEST_FIELD] = text_sentence.text()
         config[SETTING_NUM_SENTENCES] = text_sentc_nums.value()
@@ -327,6 +342,7 @@ def settings_dialog():
         layout.addLayout(box_ordered_list)
         layout.addLayout(box_sentence)
         layout.addLayout(box_sentc_nums)
+        layout.addLayout(box_jp_def)
 
         layout.addWidget(ok)
         layout.addWidget(cancel)
@@ -348,7 +364,7 @@ def init_menu():
 
 def get_field_names_array():
     array = [config.get(SETTING_SRC_FIELD), config.get(SETTING_FURI_DEST_FIELD), config.get(SETTING_KANA_DEST_FIELD),
-             config.get(SETTING_TYPE_DEST_FIELD), config.get(SETTING_MEANING_FIELD), config.get(SETTING_SENTENCE_DEST_FIELD)]
+             config.get(SETTING_TYPE_DEST_FIELD), config.get(SETTING_MEANING_FIELD), config.get(SETTING_SENTENCE_DEST_FIELD), config.get(SETTING_JAPAN_DEST_FIELD)]
     return array
 
 
@@ -398,6 +414,12 @@ else:
     jmdict_data = None
     with open(data_file, "wb") as file:
         pickle.dump(dict_data, file)
+
+file = os.path.join(dicts_path + "DAIJISEN.map")
+dict_file = os.path.join(dicts_path + "daijisen.json")
+json_obj = None
+
+dictionary = japanese_dictionary.Japanese_Dictionary(file, dict_file)
 
 # Begin Section for example sentences
 sentences_pickle_file = 'sentences.pickle'
