@@ -1,1 +1,1 @@
-from . import kanji_furi
+from . import kanji_furi, japanese_dictionary
