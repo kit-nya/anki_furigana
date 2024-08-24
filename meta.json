@@ -5,6 +5,8 @@
     "kanji_field": "Front",
     "kana_field": "Reading",
     "type_field": "WordType",
-    "number_of_defs": 3
+    "number_of_defs": 3,
+    "number_of_sentences": 5,
+    "sentence_field": "Examples"
   }
 }
