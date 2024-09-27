@@ -9,6 +9,7 @@ With this add-on, you can:
 - Automatically populate Anki flashcards with kanji readings and definitions.
 - Limit the number of definitions to top X number
 - Work entirely offline.
+- **Updated**: Now includes example sentences from the [tatoeba project](https://tatoeba.org/)
 
 ## References
 
