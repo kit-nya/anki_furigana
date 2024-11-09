@@ -6,7 +6,7 @@ import xml.etree.ElementTree as Et
 import pickle
 
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QVBoxLayout, QSpinBox
+from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QVBoxLayout, QSpinBox, QCheckBox
 from anki.notes import Note
 from aqt import gui_hooks, qconnect, mw
 
@@ -20,6 +20,7 @@ SETTING_MEANING_FIELD = "definition_field"
 SETTING_NUM_DEFS = "number_of_defs"
 SETTING_NUM_SENTENCES = "number_of_sentences"
 SETTING_SENTENCE_DEST_FIELD = "sentence_field"
+SETTING_USE_ORDERED_LIST = "use_ordered_list"
 
 # This is used to prevent excessive lookups
 previous_srcTxt = None
@@ -62,7 +63,7 @@ def build_dict_from_xml(root):
         for i, sense in enumerate(entry.iter('sense'), start=1):
             glosses = [gloss.text for gloss in sense.iter('gloss')]
             gloss_text = '; '.join(glosses)
-            senses[i] = f"{i}: {gloss_text}"
+            senses[i] = f"{gloss_text}"
         reb = entry.findall('r_ele/reb')[0].text.strip()
         for ke in keb_entries:
             if ke not in output:
@@ -73,10 +74,17 @@ def build_dict_from_xml(root):
 def get_senses(dict_item, limit=5):
     numbers = list(range(1, limit+1))
     arry = []
-    for number in numbers:
+    for idx, number in enumerate(numbers):
         if number in dict_item["senses"]:
-            arry.append(dict_item["senses"][number])
-    return "<br>".join(arry)
+            if config.get(SETTING_USE_ORDERED_LIST, False):
+                arry.append(dict_item["senses"][number])
+            else:
+                arry.append(f"{idx + 1}. {dict_item['senses'][number]}")
+    if config.get(SETTING_USE_ORDERED_LIST, False):
+        return f"<ol>{''.join(f'<li>{item}</li>' for item in arry)}</ol>"
+    else:
+        return "<br>".join(arry)
+
 
 def search_def(root, keb_text, def_limit=0):
     return_val = ""
@@ -255,6 +263,13 @@ def settings_dialog():
     box_def_nums.addWidget(label_def_nums)
     box_def_nums.addWidget(text_def_nums)
 
+    # Formatted flag
+    box_ordered_list = QHBoxLayout()
+    label_ordered_list = QLabel("Use Ordered List:")
+    checkbox_ordered_list = QCheckBox()
+    box_ordered_list.addWidget(label_ordered_list)
+    box_ordered_list.addWidget(checkbox_ordered_list)
+
     box_sentence = QHBoxLayout()
     label_sentence = QLabel("Example Sentence field:")
     text_sentence = QLineEdit("")
@@ -282,6 +297,7 @@ def settings_dialog():
         text_def_nums.setValue(config.get(SETTING_NUM_DEFS, 5))
         text_sentence.setText(config.get(SETTING_SENTENCE_DEST_FIELD, "Examples"))
         text_sentc_nums.setValue(config.get(SETTING_NUM_SENTENCES, 5))
+        checkbox_ordered_list.setChecked(config.get(SETTING_USE_ORDERED_LIST, False))
 
 
     def save_config():
@@ -293,6 +309,7 @@ def settings_dialog():
         config[SETTING_NUM_DEFS] = text_def_nums.value()
         config[SETTING_SENTENCE_DEST_FIELD] = text_sentence.text()
         config[SETTING_NUM_SENTENCES] = text_sentc_nums.value()
+        config[SETTING_USE_ORDERED_LIST] = checkbox_ordered_list.isChecked()
         mw.addonManager.writeConfig(__name__, config)
         dialog.close()
 
@@ -307,6 +324,7 @@ def settings_dialog():
         layout.addLayout(box_def)
         layout.addLayout(box_type)
         layout.addLayout(box_def_nums)
+        layout.addLayout(box_ordered_list)
         layout.addLayout(box_sentence)
         layout.addLayout(box_sentc_nums)
 
