@@ -6,7 +6,8 @@ import xml.etree.ElementTree as Et
 import pickle
 
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QVBoxLayout, QSpinBox, QCheckBox
+from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QVBoxLayout, QSpinBox, QCheckBox, \
+    QComboBox, QProgressBar
 from anki.notes import Note
 from aqt import gui_hooks, qconnect, mw
 
@@ -180,30 +181,35 @@ def on_focus_lost(changed: bool, note: Note, current_field_index: int) -> bool:
         # Strip for good measure
         src_txt = mw.col.media.strip(note[modified_field])
         if src_txt != "" and (previous_srcTxt is None or src_txt != previous_srcTxt):
-            # Added the field checks for people who don't have all fields for whatever reason
-            if config.get(SETTING_FURI_DEST_FIELD) in fields:
-                if insert_if_empty(fields, note, SETTING_FURI_DEST_FIELD, search_furigana(jmdict_furi_data, src_txt)):
-                    changed = True
-            jmdict_info = dict_data.get(src_txt, None)
-            if jmdict_info is not None:
-                if config.get(SETTING_MEANING_FIELD) in fields:
-                    def_num = config[SETTING_NUM_DEFS]
-                    if insert_if_empty(fields, note, SETTING_MEANING_FIELD,
-                                       get_senses(jmdict_info, def_num)):
-                        changed = True
-                if config.get(SETTING_KANA_DEST_FIELD) in fields:
-                    if insert_if_empty(fields, note, SETTING_KANA_DEST_FIELD, jmdict_info.get("reb", "")):
-                        changed = True
-                if config.get(SETTING_TYPE_DEST_FIELD) in fields:
-                    if insert_if_empty(fields, note, SETTING_TYPE_DEST_FIELD,
-                                       parts_of_speech_conversion(jmdict_info.get("parts_of_speech_values", ""))):
-                        changed = True
-            if config.get(SETTING_SENTENCE_DEST_FIELD) in fields:
-                sentence_num = config[SETTING_NUM_SENTENCES]
-                if insert_if_empty(fields, note, SETTING_SENTENCE_DEST_FIELD, jsl.find_example_sentences_by_word_formatted(src_txt, sentence_num)):
-                    changed = True
+            changed = update_note(note, src_txt)
     return changed
 
+def update_note(note: Note, src_txt):
+    changed = False
+    fields = mw.col.models.field_names(note.note_type())
+    # Added the field checks for people who don't have all fields for whatever reason
+    if config.get(SETTING_FURI_DEST_FIELD) in fields:
+        if insert_if_empty(fields, note, SETTING_FURI_DEST_FIELD, search_furigana(jmdict_furi_data, src_txt)):
+            changed = True
+    jmdict_info = dict_data.get(src_txt, None)
+    if jmdict_info is not None:
+        if config.get(SETTING_MEANING_FIELD) in fields:
+            def_num = config[SETTING_NUM_DEFS]
+            if insert_if_empty(fields, note, SETTING_MEANING_FIELD,
+                               get_senses(jmdict_info, def_num)):
+                changed = True
+        if config.get(SETTING_KANA_DEST_FIELD) in fields:
+            if insert_if_empty(fields, note, SETTING_KANA_DEST_FIELD, jmdict_info.get("reb", "")):
+                changed = True
+        if config.get(SETTING_TYPE_DEST_FIELD) in fields:
+            if insert_if_empty(fields, note, SETTING_TYPE_DEST_FIELD,
+                               parts_of_speech_conversion(jmdict_info.get("parts_of_speech_values", ""))):
+                changed = True
+    if config.get(SETTING_SENTENCE_DEST_FIELD) in fields:
+        sentence_num = config[SETTING_NUM_SENTENCES]
+        if insert_if_empty(fields, note, SETTING_SENTENCE_DEST_FIELD, jsl.find_example_sentences_by_word_formatted(src_txt, sentence_num)):
+            changed = True
+    return changed
 
 def insert_if_empty(fields: list, note: Note, dest_config: str, new_text: str):
     if new_text == "":
@@ -340,10 +346,91 @@ def settings_dialog():
     dialog.exec()
 
 
+def batch_update_dialog():
+    dialog = QDialog(mw)
+    dialog.setWindowTitle("Batch Update")
+
+    # Dropdown box (combo box) for available note types
+    dropdown_layout = QHBoxLayout()
+    label_note_type = QLabel("Select Note Type:")
+    note_type_dropdown = QComboBox()
+
+    # Fetch available note types from the collection and populate the dropdown
+    note_types = mw.col.models.all_names()
+    if note_types:
+        note_type_dropdown.addItems(note_types)
+
+    dropdown_layout.addWidget(label_note_type)
+    dropdown_layout.addWidget(note_type_dropdown)
+
+    # Progress bar at the bottom of the layout
+    progress_bar = QProgressBar()
+    progress_bar.setRange(0, 0)  # Default initial range
+    progress_bar.setValue(0)
+    progress_bar.setTextVisible(True)
+    progress_bar.setFormat("%v/%m notes updated")
+
+    # OK and Cancel buttons
+    button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Close)
+
+    def on_ok_clicked():
+        selected_note_type = note_type_dropdown.currentText()
+        if selected_note_type:
+            print(f"Selected Note Type: {selected_note_type}")
+            model = mw.col.models.by_name(selected_note_type)
+            if model:
+                note_ids = mw.col.db.list(
+                    "SELECT id FROM notes WHERE mid = ?", model["id"]
+                )
+                for idx, note_id in enumerate(note_ids):
+                    note = mw.col.getNote(note_id)
+                    src_field = config.get(SETTING_SRC_FIELD, "")
+                    if src_field in note and note[src_field]:
+                        if update_note(note, note[src_field]):
+                            note.flush()
+                    progress_bar.setValue(idx + 1)
+
+    def on_cancel_clicked():
+        dialog.close()
+
+    # Event handler for when the combobox selection changes
+    def on_note_type_changed(index):
+        if index >= 0:
+            selected_note_type = note_type_dropdown.itemText(index)
+            # Get the ID of the selected note type
+            model = mw.col.models.by_name(selected_note_type)
+            if model:
+                # Fetch total number of notes of the selected type
+                note_count = mw.col.db.scalar(
+                    "SELECT COUNT() FROM notes WHERE mid = ?", model["id"]
+                )
+                print(f"Total Notes for {selected_note_type}: {note_count}")
+                # Update progress bar maximum to the count
+                progress_bar.setRange(0, note_count)
+                progress_bar.setValue(0)  # Reset progress bar value
+
+    # Connect signals to slots
+    note_type_dropdown.currentIndexChanged.connect(on_note_type_changed)
+    button_box.accepted.connect(on_ok_clicked)
+    button_box.rejected.connect(on_cancel_clicked)
+
+    layout = QVBoxLayout(dialog)
+
+    layout.addLayout(dropdown_layout)
+    layout.addWidget(progress_bar)
+    layout.addWidget(button_box)
+
+    dialog.setLayout(layout)
+    dialog.exec()
+
+
 def init_menu():
     action = QAction("Furigana Addon Settings", mw)
+    batch_update = QAction("Furigana Batch Update", mw)
     qconnect(action.triggered, settings_dialog)
+    qconnect(batch_update.triggered, batch_update_dialog)
     mw.form.menuTools.addAction(action)
+    mw.form.menuTools.addAction(batch_update)
 
 
 def get_field_names_array():
