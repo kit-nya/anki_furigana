@@ -10,7 +10,7 @@ With this add-on, you can:
 - Limit the number of definitions to top X number
 - Work entirely offline.
 - **Updated**: Now includes example sentences from the [tatoeba project](https://tatoeba.org/)
-- **Updated**: Bulk update option now available!
+- **Updated** 25/01: Bulk update option now available!
 ## References
 
 I have used JMdict for fetching kanji readings and definitions.
@@ -56,12 +56,14 @@ To remove the outputs, for example if the card is a duplicate then use the follo
 
 ![Clear Fields Button](https://raw.githubusercontent.com/kit-nya/anki_furigana/master/docs/clear_fields.png)
 
-![Bulk Update Option](https://raw.githubusercontent.com/kit-nya/anki_furigana/master/docs/batch_update.png)
 To perform a bulk update, use the following option from the main dropdown
 
+![Bulk Update Option](https://raw.githubusercontent.com/kit-nya/anki_furigana/master/docs/batch_update.png)
+
 ![Bulk Update Dialogue](https://raw.githubusercontent.com/kit-nya/anki_furigana/master/docs/batch_update_dialogue.png)
+
 Select the deck you wish to update from the dropdown and then click OK.
-Please note that it may take a moment for all cards to update. 
+Please note that it may take a moment for all cards to update.
 No data will be overwritten during this process.
 This is functionally identical to updating cards in a manual manner.
 
