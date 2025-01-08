@@ -7,7 +7,7 @@ import pickle
 
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QVBoxLayout, QSpinBox, QCheckBox, \
-    QComboBox, QProgressBar
+    QComboBox, QProgressBar, QFormLayout
 from anki.notes import Note
 from aqt import gui_hooks, qconnect, mw
 
@@ -210,10 +210,11 @@ def update_note(note: Note, src_txt):
         sentence_num = config[SETTING_NUM_SENTENCES]
         if insert_if_empty(fields, note, SETTING_SENTENCE_DEST_FIELD, jsl.find_example_sentences_by_word_formatted(src_txt, sentence_num)):
             changed = True
-    if config.get(SETTING_JAPAN_DEST_FIELD) in fields:
-        jpdef = dictionary.lookup_word(src_txt)
-        if jpdef is not None:
-            if insert_if_empty(fields, note, SETTING_JAPAN_DEST_FIELD, jpdef):
+    if config.get(SETTING_JAPAN_DEST_FIELD) in fields and jisho is not None:
+        jp_def = jisho.lookup_word(src_txt)
+        if jp_def is not None:
+            jp_def = jp_def.replace("\n", "<br>")
+            if insert_if_empty(fields, note, SETTING_JAPAN_DEST_FIELD, jp_def):
                 changed = True
     return changed
 
@@ -232,81 +233,61 @@ def settings_dialog():
     dialog = QDialog(mw)
     dialog.setWindowTitle("Furigana Addon")
 
+    # Initialize the form layout
+    form_layout = QFormLayout()
+
     # Input Field
-    box_query = QHBoxLayout()
-    label_query = QLabel("Input field:")
     text_query = QLineEdit("")
     text_query.setMinimumWidth(200)
-    box_query.addWidget(label_query)
-    box_query.addWidget(text_query)
+    form_layout.addRow("Input field:", text_query)
 
-    # All the output stuff
-    box_furigana = QHBoxLayout()
-    label_furigana = QLabel("Furigana field:")
+    # Furigana Field
     text_furigana = QLineEdit("")
     text_furigana.setMinimumWidth(200)
-    box_furigana.addWidget(label_furigana)
-    box_furigana.addWidget(text_furigana)
+    form_layout.addRow("Furigana field:", text_furigana)
 
-    box_def = QHBoxLayout()
-    label_def = QLabel("Definition field:")
-    text_def = QLineEdit("")
-    text_def.setMinimumWidth(200)
-    box_def.addWidget(label_def)
-    box_def.addWidget(text_def)
-
-    box_kana = QHBoxLayout()
-    label_kana = QLabel("Kana field:")
+    # Kana Field
     text_kana = QLineEdit("")
     text_kana.setMinimumWidth(200)
-    box_kana.addWidget(label_kana)
-    box_kana.addWidget(text_kana)
+    form_layout.addRow("Kana field:", text_kana)
 
-    box_type = QHBoxLayout()
-    label_type = QLabel("Type field:")
+    # Definition Field
+    text_def = QLineEdit("")
+    text_def.setMinimumWidth(200)
+    form_layout.addRow("Definition field:", text_def)
+
+    # Type Field
     text_type = QLineEdit("")
     text_type.setMinimumWidth(200)
-    box_type.addWidget(label_type)
-    box_type.addWidget(text_type)
+    form_layout.addRow("Type field:", text_type)
 
-    box_def_nums = QHBoxLayout()
-    label_def_nums = QLabel("Number of Defs:")
+    # Number of Definitions
     text_def_nums = QSpinBox()
     text_def_nums.setMinimumWidth(200)
-    box_def_nums.addWidget(label_def_nums)
-    box_def_nums.addWidget(text_def_nums)
+    form_layout.addRow("Number of Defs:", text_def_nums)
 
-    # Formatted flag
-    box_ordered_list = QHBoxLayout()
-    label_ordered_list = QLabel("Use Ordered List:")
+    # Use Ordered List
     checkbox_ordered_list = QCheckBox()
-    box_ordered_list.addWidget(label_ordered_list)
-    box_ordered_list.addWidget(checkbox_ordered_list)
+    form_layout.addRow("Use Ordered List:", checkbox_ordered_list)
 
-    box_sentence = QHBoxLayout()
-    label_sentence = QLabel("Example Sentence field:")
+    # Example Sentence Field
     text_sentence = QLineEdit("")
     text_sentence.setMinimumWidth(200)
-    box_sentence.addWidget(label_sentence)
-    box_sentence.addWidget(text_sentence)
+    form_layout.addRow("Example Sentence field:", text_sentence)
 
-    box_sentc_nums = QHBoxLayout()
-    label_sentc_nums = QLabel("Number of Sentences:")
+    # Number of Sentences
     text_sentc_nums = QSpinBox()
     text_sentc_nums.setMinimumWidth(200)
-    box_sentc_nums.addWidget(label_sentc_nums)
-    box_sentc_nums.addWidget(text_sentc_nums)
+    form_layout.addRow("Number of Sentences:", text_sentc_nums)
 
-    box_jp_def = QHBoxLayout()
-    label_jp_def = QLabel("JP Def field:")
+    # JP Definition Field
     text_jp_def = QLineEdit("")
     text_jp_def.setMinimumWidth(200)
-    box_jp_def.addWidget(label_jp_def)
-    box_jp_def.addWidget(text_jp_def)
+    form_layout.addRow("JP Def field:", text_jp_def)
 
-    ok = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
-    cancel = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
-
+    # OK and Cancel Buttons
+    button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+    form_layout.addWidget(button_box)
 
     def init_configui():
         text_query.setText(config.get(SETTING_SRC_FIELD, "not_set"))
@@ -319,7 +300,6 @@ def settings_dialog():
         text_sentence.setText(config.get(SETTING_SENTENCE_DEST_FIELD, "Examples"))
         text_sentc_nums.setValue(config.get(SETTING_NUM_SENTENCES, 5))
         checkbox_ordered_list.setChecked(config.get(SETTING_USE_ORDERED_LIST, False))
-
 
     def save_config():
         config[SETTING_SRC_FIELD] = text_query.text()
@@ -335,31 +315,14 @@ def settings_dialog():
         mw.addonManager.writeConfig(__name__, config)
         dialog.close()
 
-
-    def layout_everything():
-        layout = QVBoxLayout()
-        dialog.setLayout(layout)
-
-        layout.addLayout(box_query)
-        layout.addLayout(box_furigana)
-        layout.addLayout(box_kana)
-        layout.addLayout(box_def)
-        layout.addLayout(box_type)
-        layout.addLayout(box_def_nums)
-        layout.addLayout(box_ordered_list)
-        layout.addLayout(box_sentence)
-        layout.addLayout(box_sentc_nums)
-        layout.addLayout(box_jp_def)
-
-        layout.addWidget(ok)
-        layout.addWidget(cancel)
-
     init_configui()
-    ok.clicked.connect(save_config)
-    cancel.clicked.connect(dialog.close)
 
-    layout_everything()
+    # Connect button actions
+    button_box.accepted.connect(save_config)
+    button_box.rejected.connect(dialog.close)
 
+    # Set layout and execute dialog
+    dialog.setLayout(form_layout)
     dialog.exec()
 
 
@@ -503,11 +466,21 @@ else:
     with open(data_file, "wb") as file:
         pickle.dump(dict_data, file)
 
-file = os.path.join(dicts_path + "DAIJISEN.map")
+dict_mapping = os.path.join(dicts_path + "DAIJISEN.map")
 dict_file = os.path.join(dicts_path + "daijisen.json")
 json_obj = None
 
-dictionary = japanese_dictionary.Japanese_Dictionary(file, dict_file)
+# Begin checks and load for daijisen
+if os.path.isfile(dict_file):
+    try:
+        jisho = japanese_dictionary.Japanese_Dictionary(dict_mapping, dict_file)
+        print("Loaded JP Dictionary.")
+    except Exception as e:
+        print("Exception loading dictionary: ", e)
+        jisho = None
+else:
+    jisho = None
+
 
 # Begin Section for example sentences
 sentences_pickle_file = 'sentences.pickle'

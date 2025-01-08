@@ -38,7 +38,6 @@ class Japanese_Dictionary:
         # Adjusted pattern to match any letter before the underscore
         pattern = re.compile(r'\{\{\w+_(\d+)\}\}')
         result = pattern.sub(replacer, text)
-
         return result
 
     def lookup_word(self, lookup_word: str):
